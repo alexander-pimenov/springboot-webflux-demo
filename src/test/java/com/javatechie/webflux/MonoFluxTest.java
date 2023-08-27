@@ -42,6 +42,41 @@ public class MonoFluxTest {
         //Exception occured
     }
 
+    @DisplayName("тестирование подписки на МОНО и объекта IraReqRef. Просмотр данных через вывод в консоль log()")
+    @Test
+    public void testMono3() {
+        IraReqRef iraReqRef = new IraReqRef(new IraReqId("1234567"));
+        Mono<?> monoString1 = Mono.just(iraReqRef)
+                .log(); //выводит все шаги в консоль
+        monoString1.subscribe(System.out::println, (e) -> System.out.println(e.getMessage()));
+        //имеем такой вывод:
+        //20:23:25.397 [main] DEBUG reactor.util.Loggers - Using Slf4j logging framework
+        //20:23:25.413 [main] INFO reactor.Mono.Just.1 - | onSubscribe([Synchronous Fuseable] Operators.ScalarSubscription)
+        //20:23:25.416 [main] INFO reactor.Mono.Just.1 - | request(unbounded)
+        //20:23:25.416 [main] INFO reactor.Mono.Just.1 - | onNext(IraReqRef(iraReqId=IraReqId(value=1234567)))
+        //IraReqRef(iraReqId=IraReqId(value=1234567))
+        //20:23:25.417 [main] INFO reactor.Mono.Just.1 - | onComplete()
+    }
+
+    @DisplayName("тестирование подписки на МОНО и объекта IraReqRef с ошибкой. Просмотр данных через вывод в консоль log()")
+    @Test
+    public void testMono4() {
+        IraReqRef iraReqRef = new IraReqRef(new IraReqId("1234567"));
+        Mono<?> monoString1 = Mono.just(iraReqRef)
+                .then(Mono.error(new RuntimeException("Exception occured")))
+                .log(); //выводит все шаги в консоль
+        monoString1.subscribe(System.out::println, (e) -> System.out.println(e.getMessage()));
+        //имеем такой вывод:
+        //20:25:29.342 [main] DEBUG reactor.util.Loggers - Using Slf4j logging framework
+        //20:25:29.356 [main] INFO reactor.Mono.IgnoreThen.1 - | onSubscribe([Fuseable] MonoIgnoreThen.ThenIgnoreMain)
+        //20:25:29.358 [main] INFO reactor.Mono.IgnoreThen.1 - | request(unbounded)
+        //20:25:29.361 [main] ERROR reactor.Mono.IgnoreThen.1 - | onError(java.lang.RuntimeException: Exception occured)
+        //20:25:29.364 [main] ERROR reactor.Mono.IgnoreThen.1 -
+        //java.lang.RuntimeException: Exception occured
+        //....
+        //Exception occured
+    }
+
     @DisplayName("тестирование подписки на Flux. Просмотр данных через вывод в консоль log()")
     @Test
     public void testFlux1() {
@@ -122,6 +157,77 @@ public class MonoFluxTest {
         // .....скрыто много стектрейса
         //Exception occured in Flux
 
+    }
+
+    @DisplayName("тестирование подписки на Flux и объект IraReqRef. Просмотр данных через вывод в консоль log()")
+    @Test
+    public void testFlux3() {
+        IraReqRef iraReqRef1 = new IraReqRef(new IraReqId("111111"));
+        IraReqRef iraReqRef2 = new IraReqRef(new IraReqId("222222"));
+        IraReqRef iraReqRef3 = new IraReqRef(new IraReqId("333333"));
+        IraReqRef iraReqRef4 = new IraReqRef(new IraReqId("444444"));
+        IraReqRef iraReqRef5 = new IraReqRef(new IraReqId("555555"));
+        IraReqRef iraReqRef6 = new IraReqRef(new IraReqId("666666"));
+
+        Flux<IraReqRef> fluxString1 = Flux.just(iraReqRef1, iraReqRef2, iraReqRef3, iraReqRef4)
+                .concatWithValues(iraReqRef5)
+                .concatWithValues(iraReqRef6)
+                .log();
+        fluxString1.subscribe(System.out::println, (e) -> System.out.println(e.getMessage()));
+        //
+        //20:29:22.206 [main] DEBUG reactor.util.Loggers - Using Slf4j logging framework
+        //20:29:22.219 [main] INFO reactor.Flux.ConcatArray.1 - onSubscribe(FluxConcatArray.ConcatArraySubscriber)
+        //20:29:22.221 [main] INFO reactor.Flux.ConcatArray.1 - request(unbounded)
+        //20:29:22.222 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=111111)))
+        //IraReqRef(iraReqId=IraReqId(value=111111))
+        //20:29:22.222 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=222222)))
+        //IraReqRef(iraReqId=IraReqId(value=222222))
+        //20:29:22.222 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=333333)))
+        //IraReqRef(iraReqId=IraReqId(value=333333))
+        //20:29:22.222 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=444444)))
+        //IraReqRef(iraReqId=IraReqId(value=444444))
+        //20:29:22.223 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=555555)))
+        //IraReqRef(iraReqId=IraReqId(value=555555))
+        //20:29:22.223 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=666666)))
+        //IraReqRef(iraReqId=IraReqId(value=666666))
+        //20:29:22.223 [main] INFO reactor.Flux.ConcatArray.1 - onComplete()
+    }
+
+    @DisplayName("тестирование подписки на Flux и объект IraReqRef с ошибкой. Просмотр данных через вывод в консоль log()")
+    @Test
+    public void testFlux4() {
+        IraReqRef iraReqRef1 = new IraReqRef(new IraReqId("111111"));
+        IraReqRef iraReqRef2 = new IraReqRef(new IraReqId("222222"));
+        IraReqRef iraReqRef3 = new IraReqRef(new IraReqId("333333"));
+        IraReqRef iraReqRef4 = new IraReqRef(new IraReqId("444444"));
+        IraReqRef iraReqRef5 = new IraReqRef(new IraReqId("555555"));
+        IraReqRef iraReqRef6 = new IraReqRef(new IraReqId("666666"));
+
+        Flux<IraReqRef> fluxString1 = Flux.just(iraReqRef1, iraReqRef2, iraReqRef3, iraReqRef4)
+                .concatWithValues(iraReqRef5)
+                .concatWith(Flux.error(new RuntimeException("Exception occured in Flux")))
+                .concatWithValues(iraReqRef6)
+                .log();
+        fluxString1.subscribe(System.out::println, (e) -> System.out.println(e.getMessage()));
+        //
+        //20:30:53.925 [main] DEBUG reactor.util.Loggers - Using Slf4j logging framework
+        //20:30:53.940 [main] INFO reactor.Flux.ConcatArray.1 - onSubscribe(FluxConcatArray.ConcatArraySubscriber)
+        //20:30:53.942 [main] INFO reactor.Flux.ConcatArray.1 - request(unbounded)
+        //20:30:53.943 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=111111)))
+        //IraReqRef(iraReqId=IraReqId(value=111111))
+        //20:30:53.944 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=222222)))
+        //IraReqRef(iraReqId=IraReqId(value=222222))
+        //20:30:53.944 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=333333)))
+        //IraReqRef(iraReqId=IraReqId(value=333333))
+        //20:30:53.944 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=444444)))
+        //IraReqRef(iraReqId=IraReqId(value=444444))
+        //20:30:53.944 [main] INFO reactor.Flux.ConcatArray.1 - onNext(IraReqRef(iraReqId=IraReqId(value=555555)))
+        //IraReqRef(iraReqId=IraReqId(value=555555))
+        //20:30:53.945 [main] ERROR reactor.Flux.ConcatArray.1 - onError(java.lang.RuntimeException: Exception occured in Flux)
+        //20:30:53.947 [main] ERROR reactor.Flux.ConcatArray.1 -
+        //java.lang.RuntimeException: Exception occured in Flux
+        //......
+        //Exception occured in Flux
     }
 
 }
