@@ -4,6 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import java.rmi.server.UID;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * <a href="https://www.appsdeveloperblog.com/doon-callbacks-in-project-reactor/">source1</a>
@@ -140,5 +145,151 @@ public class DoOnCallbacksTest {
                 .log()
                 .subscribe(num -> log.info("Number: {}", num),
                         (e) -> log.info("Error: {}", e.getMessage()));
+    }
+
+    @Test
+    public void monoDoOnMethods() {
+        String name = "William Suane";
+        Mono<Object> mono = Mono.just(name)
+                .log()
+                .map(String::toUpperCase)
+                .doOnSubscribe(subscription -> log.info("Subscribed"))
+                .doOnRequest(longNumber -> log.info("Request Received, starting doing something..."))
+                .doOnNext(s -> log.info("Value is here. Executing doOnNext {}", s))
+                .flatMap(s -> Mono.empty())
+                .doOnNext(s -> log.info("Value is here. Executing doOnNext {}", s)) //will not be executed
+                .doOnSuccess(s -> log.info("doOnSuccess executed {}", s));
+
+        mono.subscribe(s -> log.info("Value {}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"));
+
+    }
+
+    @Test
+    public void monoDoOnError() {
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .doOnNext(s -> log.info("Executing this doOnNext"))
+                .log();
+
+        StepVerifier.create(error)
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    public void monoOnErrorResume() {
+        String name = "William Suane";
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.just(name);
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(error)
+                .expectNext(name)
+                .verifyComplete();
+    }
+
+    @Test
+    public void monoOnErrorReturn() {
+        String name = "William Suane";
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .onErrorReturn("EMPTY")
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.just(name);
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(error)
+                .expectNext("EMPTY")
+                .verifyComplete();
+    }
+
+    /**
+     * Отдаем только запрошенные количество объектов из потока.
+     * С помощью оператора request(3)
+     */
+    @Test
+    public void monoSubscriberConsumerSubscription() {
+        String name1 = "William Suane [" + UUID.randomUUID() + "]";
+        String name2 = "William Suane [" + UUID.randomUUID() + "]";
+        String name3 = "William Suane [" + UUID.randomUUID() + "]";
+        String name4 = "William Suane [" + UUID.randomUUID() + "]";
+        String name5 = "William Suane [" + UUID.randomUUID() + "]";
+        String name6 = "William Suane [" + UUID.randomUUID() + "]";
+
+        Flux<String> flux = Flux.just(name1, name2, name3, name4, name5, name6)
+                .log()
+                .map(String::toUpperCase);
+        log.info("=========================");
+
+        flux.subscribe(s -> log.info("Value {}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"),
+                subscription -> subscription.request(3));
+
+        log.info("--------------------------");
+
+//        StepVerifier.create(flux)
+//                .expectNext(name1.toUpperCase())
+//                .expectNext(name2.toUpperCase())
+//                .expectNext(name3.toUpperCase())
+//                .verifyComplete();
+    }
+
+    @Test
+    public void monoSubscriberConsumerComplete() {
+        String name = "William Suane";
+        Mono<String> mono = Mono.just(name)
+                .log()
+                .map(String::toUpperCase);
+
+        mono.subscribe(s -> log.info("Value {}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"));
+
+        log.info("--------------------------");
+
+        StepVerifier.create(mono)
+                .expectNext(name.toUpperCase())
+                .verifyComplete();
+    }
+
+    /**
+     * Как видно из теста можно подписываться несколько раз на поток.
+     * Тут подписались 4 раза и 4 раза получили результат. Тут это ошибка.
+     */
+    @Test
+    public void monoSubscriberConsumerError() {
+        String name = "William Suane";
+        Mono<String> mono = Mono.just(name)
+                .map(s -> {
+                    throw new RuntimeException("*** Testing mono with error ****");
+                });
+
+        mono.subscribe(s -> log.info("Name {}", s), s -> log.error("Something bad happened!!!"));
+        mono.subscribe(s -> log.info("Name {}", s), s -> log.error("Something bad happened!!!"));
+
+        log.info("--------------------------");
+        log.info("--------------------------");
+        log.info("--------------------------");
+
+        mono.subscribe(s -> log.info("Name {}", s), Throwable::printStackTrace);
+        log.info("--------------------------");
+        log.info("--------------------------");
+
+        mono.subscribe(s -> log.info("Value {}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"));
+
+        StepVerifier.create(mono)
+                .expectError(RuntimeException.class)
+                .verify();
     }
 }

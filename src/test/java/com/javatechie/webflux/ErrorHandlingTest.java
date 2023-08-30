@@ -1,9 +1,11 @@
 package com.javatechie.webflux;
 
+import com.javatechie.webflux.exception.ClientException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 /**
  * <a href="https://www.appsdeveloperblog.com/exception-handling-in-project-reactor/">source1</a>
@@ -21,6 +23,7 @@ import reactor.core.publisher.Mono;
  * <p>
  * <p>
  * <a href="https://stackoverflow.com/questions/67531829/how-to-handle-errors-in-reactive-spring-webflux">source2</a>
+ * <a href="https://github.com/devdojoacademy/project-reactor-essentials/blob/video24/src/test/java/academy/devdojo/reactive/test/MonoTest.java">source3</a>
  * <p>
  * Всего существует шесть методов обработки ошибок, пять из которых обсуждаются ниже:
  * <p>
@@ -180,6 +183,106 @@ public class ErrorHandlingTest {
                 )
                 .subscribe(num -> log.info("Number: {}", num));
     }
+
+    @Test
+    public void monoOnErrorResume() {
+        String name = "William Suane";
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.just(name);
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(error)
+                .expectNext(name)
+                .verifyComplete();
+    }
+
+    @Test
+    public void monoOnErrorReturn() {
+        String name = "William Suane";
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .onErrorReturn("EMPTY")
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.just(name);
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(error)
+                .expectNext("EMPTY")
+                .verifyComplete();
+    }
+
+    /**
+     * Тестируем появление ошибки и её отлов.
+     * ОЧЕНЬ интересное поведение!!!!
+     * Когда вызываем subscribe(), ошибка НЕ отлавливается в try-catch.!!!!
+     * Она полностью обрабатывается в операторе subscribe() !!!!
+     */
+    @Test
+    public void monoOnErrorReturn2() {
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Случился Illegal argument exception"))
+                .doOnNext(s -> log.info("Что то сделаем тут"))
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.error(new ClientException(s.getMessage()));
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+        try {
+            error.subscribe(s ->
+                            log.info("Value {}", s),
+                    Throwable::printStackTrace,
+                    () -> log.info("FINISHED!"));
+        } catch (Exception ex) {                 //<--- ОЧЕНЬ интересное поведение!!!! Мы сюда не заходим!!!
+            log.error("Поймали exception: {}", ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Тестируем появление ошибки и её отлов.
+     * ОЧЕНЬ интересное поведение!!!!
+     * Когда вызываем block(), ошибка отлавливается, как обычно в try-catch.!!!!
+     */
+    @Test
+    public void monoOnErrorReturn4() {
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Случился Illegal argument exception"))
+                .doOnNext(s -> log.info("Что то сделаем тут"))
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.error(new ClientException(s.getMessage()));
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        try {
+            error.block();
+        } catch (Exception ex) { //ОЧЕНЬ интересное поведение!!!! Мы сюда не заходим!!!
+            log.error("Поймали exception: {}", ex.getMessage(), ex);
+        }
+    }
+
+    @Test
+    public void monoOnErrorReturn3() {
+        String name = "William Suane";
+        Mono<Object> error = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .doOnNext(s -> log.info("Что то сделаем тут"))
+                .onErrorResume(s -> {
+                    log.info("Inside On Error Resume");
+                    return Mono.error(new ClientException(s.getMessage()));
+                })
+                .doOnError(e -> log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(error)
+                .expectError()
+                .verify();
+    }
+
 
     /**
      * onErrorContinue: потребляет (ошибку, данные) и НЕ разделяет их.
